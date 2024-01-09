@@ -5,15 +5,17 @@ import numpy as np
 import math
 
 
-def visualize_point_cloud(pcd):
+def visualize_point_cloud(pcd, pcd2=None):
     """
     visualisiert die Punktwolke mit eingezeichneten Koordinatenachsen
     :param pcd:
     """
-    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])  # r=x g=y b=z
+    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])  # r=x g=z b=vertical
     visualizer = o3d.visualization.Visualizer()
     visualizer.create_window()
     visualizer.add_geometry(pcd)
+    if pcd2 is not None:
+        visualizer.add_geometry(pcd2)
     visualizer.add_geometry(coord_frame)
     visualizer.run()
     visualizer.destroy_window()
@@ -64,18 +66,16 @@ def crop_point_cloud_outside_of_rotated_2d_points(pcd, p1, p2, padding_x=0, padd
     pcd_yolo.points = o3d.utility.Vector3dVector(yolo_points)
 
     # print(np.asarray(pcd_yolo.points))
-    rotate_point_cloud_around_axis(pcd_yolo, (0, 0, angle))
-    rotate_point_cloud_around_axis(pcd, (0, angle, 0))
+    rotate_point_cloud_around_axis(pcd_yolo, (angle, 0, 0))
+    rotate_point_cloud_around_axis(pcd, (angle, 0, 0))
 
-    # print(np.asarray(pcd_yolo.points))
+    #print(np.asarray(pcd_yolo.points))
+    #print(np.asarray(pcd.points))
+    #visualize_point_cloud(pcd, pcd_yolo)
     p1 = np.asarray(pcd_yolo.points)[0]
     p2 = np.asarray(pcd_yolo.points)[1]
-    p_min = (min(p1[0], p2[0]), min(p1[2], p2[2]), -100)
-    p_max = (max(p1[0], p2[0]), max(p1[2], p2[2]), 100)
-
-    # print(p_min, " ", p_max)
-    # visualize_point_cloud(pcd)
-    # visualize_point_cloud(pcd_yolo)
+    p_min = (min(p1[0], p2[0]), min(p1[1], p2[1]), -100)
+    p_max = (max(p1[0], p2[0]), max(p1[1], p2[1]), 100)
     return crop_point_cloud_outside_of_box(pcd, p_min, p_max)
 
 
@@ -190,7 +190,7 @@ def rotate_point_cloud_around_axis(point_cloud, rotation_degrees):
     """
     # grad zu radiant
     rotation_radians = np.radians(rotation_degrees)
-
+    #print(rotation_radians)
     # rotationsmatrizen für die jeweiligen Achsen
 
     # x-Achse
@@ -372,76 +372,3 @@ def level_plane(point_cloud, iterate=5.0, plane=0):
     modified_point_cloud.points = o3d.utility.Vector3dVector(points)
 
     return modified_point_cloud
-
-
-"""
-testn sind Funktionen, welche veranschaulichen, wie die Funktionen verwendet werden können
-"""
-
-
-def test1():
-    # print(math.sqrt((1 / (math.cos(math.pi/4)**2) - 1)))
-    ply_file_path = "57.ply"
-    pcd = open_ply(ply_file_path)
-    pcd = filter_pcd_by_null(pcd)
-    visualize_point_cloud(pcd)
-    pcd_removed_outliers = remove_outliers(pcd)
-    # visualize_point_cloud(pcd_removed_outliers)
-    # pcd = downsample(pcd)
-    visualize_point_cloud(pcd)
-    crop_point_cloud_outside_of_2d_points(pcd, [-0.5, -0.25], [-0.1, 0.25], 0, 0)
-    visualize_point_cloud(pcd)
-
-    print(calc_maximum_distance(pcd, 2) * 10 ** 3, " mm")
-
-    rotated_pcd = rotate_point_cloud_around_axis(pcd, (0, 0, 90))
-    visualize_point_cloud(rotated_pcd)
-
-    pcd = level_plane(pcd, 10, 0)
-    visualize_point_cloud(pcd)
-
-    print(calc_maximum_distance(pcd, 2) * 10 ** 3, " mm")
-
-
-def test2():
-    ply_file_path = "1-1.ply"
-    pcd = open_ply(ply_file_path)
-    pcd = filter_pcd_by_null(pcd)
-    visualize_point_cloud(pcd)
-    crop_point_cloud_outside_of_rotated_2d_points(pcd, (-3, -1), (-1, 1), 0.2, 0, -42)
-    visualize_point_cloud(pcd)
-    print(calc_maximum_distance(pcd, 2) * 10 ** 3, " mm")
-    pcd = level_plane(pcd, 10, 0)
-    visualize_point_cloud(pcd)
-    level_plane(pcd)
-    print(calc_maximum_distance(pcd, 2) * 10 ** 3, " mm")
-
-
-def test3():
-    ply_file_path = "57.ply"
-    pcd = open_ply(ply_file_path)
-    pcd = filter_pcd_by_null(pcd)
-    crop_point_cloud_outside_of_2d_points(pcd, [-0.5, -0.25], [-0.1, 0.25], 0, 0)
-    visualize_point_cloud(pcd)
-    print(calculate_max_pothole_depth(pcd) * 10 ** 3, " mm")
-    level_plane(pcd)
-    print(calc_maximum_distance(pcd, 2) * 10 ** 3, " mm")
-
-
-def test4():
-    ply_file_path = "1-1.ply"
-    pcd = open_ply(ply_file_path)
-    pcd = filter_pcd_by_null(pcd)
-
-    crop_point_cloud_outside_of_rotated_2d_points(pcd, (-3, -1), (-1, 1), 0.2, 0, -50)
-    visualize_point_cloud(pcd)
-    print(calculate_max_pothole_depth(pcd) * 10 ** 3, " mm")
-    print(calculate_average_pothole_depth(pcd) * 10 ** 3, " mm")
-    print(calc_maximum_distance(pcd, 2) * 10 ** 3, " mm")
-    level_plane(pcd)
-    visualize_point_cloud(pcd)
-    print(calc_maximum_distance(pcd, 2) * 10 ** 3, " mm")
-
-
-if __name__ == "__main__":
-    test4()
