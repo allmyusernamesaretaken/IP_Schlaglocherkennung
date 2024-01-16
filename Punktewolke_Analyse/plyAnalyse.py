@@ -1,13 +1,18 @@
 import copy
 
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 import open3d as o3d
 import numpy as np
 import math
+import scipy.optimize
+import functools
 
 
 def visualize_point_cloud(pcd, pcd2=None):
     """
     visualisiert die Punktwolke mit eingezeichneten Koordinatenachsen
+    :param pcd2:
     :param pcd:
     """
     coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])  # r=x g=z b=vertical
@@ -51,7 +56,7 @@ def scale_2d_pixels_to_3d_size():
 
 def crop_point_cloud_outside_of_rotated_2d_points(pcd, p1, p2, padding_x=0, padding_y=0, angle=0):
     """
-    schneidet die Punktwolke auf die angegebenen Grenzen zu. Falls die Kamera nicht senkrecht nach unten ausgedrichtet
+    schneidet die Punktwolke auf die angegebenen Grenzen zu. Falls die Kamera nicht senkrecht nach unten ausgerichtet
     ist, kann ein Winkel angegeben werden, welcher beim zuschneiden berücksichtigt wird.
     :param pcd: Punktewolke
     :param p1: 2D Punkt
@@ -69,13 +74,13 @@ def crop_point_cloud_outside_of_rotated_2d_points(pcd, p1, p2, padding_x=0, padd
     rotate_point_cloud_around_axis(pcd_yolo, (angle, 0, 0))
     rotate_point_cloud_around_axis(pcd, (angle, 0, 0))
 
-    #print(np.asarray(pcd_yolo.points))
-    #print(np.asarray(pcd.points))
-    #visualize_point_cloud(pcd, pcd_yolo)
+    # print(np.asarray(pcd_yolo.points))
+    # print(np.asarray(pcd.points))
+    # visualize_point_cloud(pcd, pcd_yolo)
     p1 = np.asarray(pcd_yolo.points)[0]
     p2 = np.asarray(pcd_yolo.points)[1]
-    p_min = (min(p1[0], p2[0]), min(p1[1], p2[1]), -100)
-    p_max = (max(p1[0], p2[0]), max(p1[1], p2[1]), 100)
+    p_min = (min(p1[0], p2[0]) - padding_x, min(p1[1], p2[1]) - padding_y, -100)
+    p_max = (max(p1[0], p2[0]) + padding_x, max(p1[1], p2[1]) + padding_y, 100)
     return crop_point_cloud_outside_of_box(pcd, p_min, p_max)
 
 
@@ -190,7 +195,7 @@ def rotate_point_cloud_around_axis(point_cloud, rotation_degrees):
     """
     # grad zu radiant
     rotation_radians = np.radians(rotation_degrees)
-    #print(rotation_radians)
+    # print(rotation_radians)
     # rotationsmatrizen für die jeweiligen Achsen
 
     # x-Achse
@@ -282,15 +287,62 @@ def calculate_street_plane(pcd):
     return normal, d
 
 
-def calculate_max_pothole_depth(pcd):
+def plane(x, y, params):
+    a = params[0]
+    b = params[1]
+    c = params[2]
+    z = a * x + b * y + c
+    return z
+
+
+def error(params, points):
+    result = 0
+    for (x, y, z) in points:
+        plane_z = plane(x, y, params)
+        diff = abs(plane_z - z)
+        result += diff ** 2
+    return result
+
+
+def calculate_least_square_distance(points):
+    fun = functools.partial(error, points=points)
+    params0 = [0, 0, 0]
+    res = scipy.optimize.minimize(fun, params0)
+
+    a = res.x[0]
+    b = res.x[1]
+    c = res.x[2]
+
+    point = np.array([0.0, 0.0, c])
+    normal = np.array(np.cross([1, 0, a], [0, 1, b]))
+    d = point.dot(normal)
+    return normal, d
+
+
+def calculate_max_pothole_depth(pcd, use_least_square_distance=1):
     """
     Berechnet die maximale Tiefe eines Schlaglochs.
     Bei dieser Funktion ist eine gewisse ungenauigkeit der Koordinatenachsen akzeptabel.
+    :param use_least_square_distance:
     :param pcd: punktwolke
     :return: maximale tiefe des schlaglochs
     """
     # Berechne die Normale der Ebene
-    normal, d = calculate_street_plane(pcd)
+    if use_least_square_distance == 1:
+        ###############################
+        # TODO: quadratische abweichung ist noch nicht live getestet
+        points = copy.deepcopy(np.asarray(pcd.points))
+        normal, d = calculate_least_square_distance(points)
+        points_pcd = np.asarray(pcd.points)
+        points_lower = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) <= 0]
+        points_higher = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) >= 0]
+
+        # sollte points_lower nutzen, wenn das schlagloch ein loch ist. wenn es eine box ist die auf dem boden liegt points_higher
+        normal, d = calculate_least_square_distance(points_lower)
+        ##################
+    else:
+        normal, d = calculate_street_plane(pcd)
+
     # berechne die maximale Distanz aller Punkte zur Ebene
     points_pcd = np.asarray(pcd.points)
     max_distance = 0
@@ -301,17 +353,32 @@ def calculate_max_pothole_depth(pcd):
     return max_distance
 
 
-def calculate_average_pothole_depth(pcd, threshold=5):
+def calculate_average_pothole_depth(pcd, use_least_square_distance=1, threshold=5):
     """
     Berechnet die durchschnittliche Tiefe eines Schlaglochs herbei werden alle Punkte betrachtet, welche eine größere
-    distanz haben als maximale distanz / threshold.
+    distanz haben als maximale distanz - (maximale distanz/ threshold).
     Bei dieser Funktion ist eine gewisse ungenauigkeit der Koordinatenachsen akzeptabel.
+    :param use_least_square_distance:
     :param threshold:
     :param pcd: punktwolke
     :return: durchschnittliche Tiefe des schlaglochs
     """
     # Berechne die Normale der Ebene
-    normal, d = calculate_street_plane(pcd)
+    if use_least_square_distance == 1:
+        ###############################
+        # TODO: quadratische abweichung ist noch nicht live getestet
+        points = copy.deepcopy(np.asarray(pcd.points))
+        normal, d = calculate_least_square_distance(points)
+        points_pcd = np.asarray(pcd.points)
+        points_lower = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) <= 0]
+        points_higher = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) >= 0]
+
+        # sollte points_lower nutzen, wenn das schlagloch ein loch ist. wenn es eine box ist die auf dem boden liegt points_higher
+        normal, d = calculate_least_square_distance(points_lower)
+        ##################
+    else:
+        normal, d = calculate_street_plane(pcd)
+
     # berechne die maximale Distanz aller Punkte zur Ebene
     points = np.asarray(pcd.points)
     max_distance = 0
@@ -320,11 +387,14 @@ def calculate_average_pothole_depth(pcd, threshold=5):
         if abs(distance) > max_distance:
             max_distance = abs(distance)
 
-    distance_threshold = max_distance - max_distance / threshold
+    if threshold != 0:
+        distance_threshold = max_distance - (max_distance / threshold)
+    else:
+        distance_threshold = max_distance
     added_points = 0
     distance = 0
     for point in points:
-        if abs(calculate_distance_to_plane(normal, d, point)) > distance_threshold:
+        if abs(calculate_distance_to_plane(normal, d, point)) >= distance_threshold:
             added_points += 1
             distance += abs(calculate_distance_to_plane(normal, d, point))
     return distance / added_points

@@ -17,7 +17,7 @@ from sample_camera_info import print_camera_info
 def main():
     rrf_recording = "samples/recording.rrf"
     output = "samples/frame"
-    #record_rrf(rrf_recording)
+    # record_rrf(rrf_recording)
     export_ply_from_rrf(rrf_recording, output)
     process_ply(output)
 
@@ -28,9 +28,10 @@ def process_ply(plyFile):
     pcd = pa.filter_pcd_by_null(pcd)
     pcd = pa.crop_point_cloud_outside_of_rotated_2d_points(pcd, (-0.2, 1), (0.4, 3), angle=45)
     pcd = pa.remove_outliers(pcd, 10, 0.1)  # filter evtl zu agressiv eingestellt
+    pcd = pa.rotate_point_cloud_around_axis(pcd, (180, 0, 0))  # es wird rotiert, damit ein loch simuliert wird
     pa.visualize_point_cloud(pcd)
-    print("Maximale Tiefe: " + str(pa.calculate_max_pothole_depth(pcd) * 10 ** 3) + "mm")
-    print("durchschnittliche Tiefe: " + str(pa.calculate_average_pothole_depth(pcd) * 10 ** 3) + "mm")
+    print("Maximale Tiefe: " + str(pa.calculate_max_pothole_depth(pcd, 1) * 10 ** 3) + "mm")
+    print("durchschnittliche Tiefe: " + str(pa.calculate_average_pothole_depth(pcd, 1) * 10 ** 3) + "mm")
 
 
 def export_ply_from_rrf(rrf, output="frame"):
@@ -77,7 +78,6 @@ def record_rrf(output, frames=1, skipFrames=0, skipMilliseconds=0):
     parser.add_argument("--skipFrames", type=int, default=0, help="frameSkip argument for the API method")
     parser.add_argument("--skipMilliseconds", type=int, default=0, help="msSkip argument for the API method")
     options = parser.parse_args()
-
 
     opener = CameraOpener(options)
     cam = opener.open_camera()
