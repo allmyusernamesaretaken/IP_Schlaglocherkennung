@@ -67,16 +67,17 @@ def crop_point_cloud_outside_of_rotated_2d_points(pcd, p1, p2, padding_x=0, padd
     :return: zugeschnittene und ausgerichtete Punktewolke
     """
     pcd_yolo = o3d.geometry.PointCloud()
-    yolo_points = np.asarray(((p1[0], 0, p1[1]), (p2[0], 0, p2[1])))
+    yolo_points = np.asarray(((p1[0], p1[1], 0), (p2[0], p2[1], 0)))
     pcd_yolo.points = o3d.utility.Vector3dVector(yolo_points)
 
+    visualize_point_cloud(pcd, pcd_yolo)
     # print(np.asarray(pcd_yolo.points))
     rotate_point_cloud_around_axis(pcd_yolo, (angle, 0, 0))
     rotate_point_cloud_around_axis(pcd, (angle, 0, 0))
 
     # print(np.asarray(pcd_yolo.points))
     # print(np.asarray(pcd.points))
-    # visualize_point_cloud(pcd, pcd_yolo)
+    visualize_point_cloud(pcd, pcd_yolo)
     p1 = np.asarray(pcd_yolo.points)[0]
     p2 = np.asarray(pcd_yolo.points)[1]
     p_min = (min(p1[0], p2[0]) - padding_x, min(p1[1], p2[1]) - padding_y, -100)
@@ -264,7 +265,7 @@ def calculate_distance_to_plane(normal, d, point):
 
 def calculate_street_plane(pcd):
     """
-    Berechnet die Ebene der Straße
+    Berechnet die Ebene der Straße anhand von 3 (hoffentlich sinnvoll) gewählten Punkten
     :param pcd: punktwolke
     :return: normale der ebene, d-komponente der ebene
     """
@@ -283,7 +284,7 @@ def calculate_street_plane(pcd):
 
     # Berechne die Normale der Ebene
     normal, d = create_normal_vector_with_points(p_min, p_max, p_min_max)
-    visualize_plane_by_points(pcd, p_min, p_max, p_min_max)
+    #visualize_plane_by_points(pcd, p_min, p_max, p_min_max)
     return normal, d
 
 
@@ -319,30 +320,17 @@ def calculate_least_square_distance(points):
     return normal, d
 
 
-def calculate_max_pothole_depth(pcd, use_least_square_distance=1):
+def calculate_max_pothole_depth(pcd, plane, use_least_square_distance=1):
     """
     Berechnet die maximale Tiefe eines Schlaglochs.
     Bei dieser Funktion ist eine gewisse ungenauigkeit der Koordinatenachsen akzeptabel.
+    :param plane:
     :param use_least_square_distance:
     :param pcd: punktwolke
     :return: maximale tiefe des schlaglochs
     """
     # Berechne die Normale der Ebene
-    if use_least_square_distance == 1:
-        ###############################
-        # TODO: quadratische abweichung ist noch nicht live getestet
-        points = copy.deepcopy(np.asarray(pcd.points))
-        normal, d = calculate_least_square_distance(points)
-        points_pcd = np.asarray(pcd.points)
-        points_lower = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) <= 0]
-        points_higher = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) >= 0]
-
-        # sollte points_lower nutzen, wenn das schlagloch ein loch ist. wenn es eine box ist die auf dem boden liegt points_higher
-        normal, d = calculate_least_square_distance(points_lower)
-        ##################
-    else:
-        normal, d = calculate_street_plane(pcd)
-
+    normal, d = plane
     # berechne die maximale Distanz aller Punkte zur Ebene
     points_pcd = np.asarray(pcd.points)
     max_distance = 0
@@ -353,7 +341,7 @@ def calculate_max_pothole_depth(pcd, use_least_square_distance=1):
     return max_distance
 
 
-def calculate_average_pothole_depth(pcd, use_least_square_distance=1, threshold=5):
+def calculate_average_pothole_depth(pcd, plane, use_least_square_distance=1, threshold=5):
     """
     Berechnet die durchschnittliche Tiefe eines Schlaglochs herbei werden alle Punkte betrachtet, welche eine größere
     distanz haben als maximale distanz - (maximale distanz/ threshold).
@@ -363,22 +351,7 @@ def calculate_average_pothole_depth(pcd, use_least_square_distance=1, threshold=
     :param pcd: punktwolke
     :return: durchschnittliche Tiefe des schlaglochs
     """
-    # Berechne die Normale der Ebene
-    if use_least_square_distance == 1:
-        ###############################
-        # TODO: quadratische abweichung ist noch nicht live getestet
-        points = copy.deepcopy(np.asarray(pcd.points))
-        normal, d = calculate_least_square_distance(points)
-        points_pcd = np.asarray(pcd.points)
-        points_lower = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) <= 0]
-        points_higher = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) >= 0]
-
-        # sollte points_lower nutzen, wenn das schlagloch ein loch ist. wenn es eine box ist die auf dem boden liegt points_higher
-        normal, d = calculate_least_square_distance(points_lower)
-        ##################
-    else:
-        normal, d = calculate_street_plane(pcd)
-
+    normal, d = plane
     # berechne die maximale Distanz aller Punkte zur Ebene
     points = np.asarray(pcd.points)
     max_distance = 0
@@ -398,6 +371,35 @@ def calculate_average_pothole_depth(pcd, use_least_square_distance=1, threshold=
             added_points += 1
             distance += abs(calculate_distance_to_plane(normal, d, point))
     return distance / added_points
+
+
+def calculate_street_plane_least_square_distance(pcd):
+    normal, d = calculate_least_square_distance(np.asarray(pcd.points))
+    points_pcd = np.asarray(pcd.points)
+    points_lower = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) <= 0]
+    points_higher = [point for point in points_pcd if calculate_distance_to_plane(normal, d, point) >= 0]
+
+    reduced_pcd = copy.deepcopy(pcd)
+    # Reduziere die Punktwolke
+    reduced_pcd = remove_outliers(reduced_pcd)
+    points_reduced_pcd = np.asarray(reduced_pcd.points)
+    # Finde 3 Randpunkte, welche sehr wahrscheinlich in der "BodenEbene" liegen und nicht im Schlagloch
+    p_min = points_reduced_pcd[np.argmin(points_reduced_pcd[:, 0] + points_reduced_pcd[:, 1])]
+    p_max = points_reduced_pcd[np.argmax(points_reduced_pcd[:, 0] + points_reduced_pcd[:, 1])]
+    p_min_max = points_reduced_pcd[np.argmax(points_reduced_pcd[:, 0] - points_reduced_pcd[:, 1])]
+
+    lowOrHigh = 0
+    if calculate_distance_to_plane(normal, d, p_min) > 0:
+        lowOrHigh += 1
+    if calculate_distance_to_plane(normal, d, p_max) > 0:
+        lowOrHigh += 1
+    if calculate_distance_to_plane(normal, d, p_min_max) > 0:
+        lowOrHigh += 1
+    if lowOrHigh > 2:
+        normal, d = calculate_least_square_distance(points_higher)
+    else:
+        normal, d = calculate_least_square_distance(points_lower)
+    return normal, d
 
 
 def level_plane(point_cloud, iterate=5.0, plane=0):

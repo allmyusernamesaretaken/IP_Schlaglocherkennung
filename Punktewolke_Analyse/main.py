@@ -22,16 +22,18 @@ def main():
     process_ply(output)
 
 
+# rgb
 def process_ply(plyFile):
     pcd = pa.open_ply(plyFile + ".ply")
     pa.visualize_point_cloud(pcd)
     pcd = pa.filter_pcd_by_null(pcd)
-    pcd = pa.crop_point_cloud_outside_of_rotated_2d_points(pcd, (-0.2, 1), (0.4, 3), angle=45)
+    pcd = pa.crop_point_cloud_outside_of_rotated_2d_points(pcd, (-0.4, -3), (0.4, -0.5), angle=45)
     pcd = pa.remove_outliers(pcd, 10, 0.1)  # filter evtl zu agressiv eingestellt
     pcd = pa.rotate_point_cloud_around_axis(pcd, (180, 0, 0))  # es wird rotiert, damit ein loch simuliert wird
     pa.visualize_point_cloud(pcd)
-    print("Maximale Tiefe: " + str(pa.calculate_max_pothole_depth(pcd, 1) * 10 ** 3) + "mm")
-    print("durchschnittliche Tiefe: " + str(pa.calculate_average_pothole_depth(pcd, 1) * 10 ** 3) + "mm")
+    pcd_floor = pa.calculate_street_plane_least_square_distance(pcd)
+    print("Maximale Tiefe: " + str(pa.calculate_max_pothole_depth(pcd, pcd_floor, 1) * 10 ** 3) + "mm")
+    print("durchschnittliche Tiefe: " + str(pa.calculate_average_pothole_depth(pcd, pcd_floor, 1) * 10 ** 3) + "mm")
 
 
 def export_ply_from_rrf(rrf, output="frame"):
