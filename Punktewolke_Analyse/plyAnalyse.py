@@ -45,13 +45,13 @@ def open_ply(file_path):
     return o3d.io.read_point_cloud(file_path)
 
 
-def scale_2d_pixels_to_3d_size():
+def convert_2d_points_to_3d_scale(point):
     """
     skaliert einen in pixel angegebenen Punkt aus einem 2d Bild in den Maßstab der 3d Punktwolke
     :return: skalierten 2d Punkt
     """
     # TODO  implementieren
-    pass
+    return point
 
 
 def crop_point_cloud_outside_of_rotated_2d_points(pcd, p1, p2, padding_x=0, padding_y=0, angle=0):
@@ -70,14 +70,14 @@ def crop_point_cloud_outside_of_rotated_2d_points(pcd, p1, p2, padding_x=0, padd
     yolo_points = np.asarray(((p1[0], p1[1], 0), (p2[0], p2[1], 0)))
     pcd_yolo.points = o3d.utility.Vector3dVector(yolo_points)
 
-    visualize_point_cloud(pcd, pcd_yolo)
+    #visualize_point_cloud(pcd, pcd_yolo)
     # print(np.asarray(pcd_yolo.points))
     rotate_point_cloud_around_axis(pcd_yolo, (angle, 0, 0))
     rotate_point_cloud_around_axis(pcd, (angle, 0, 0))
 
     # print(np.asarray(pcd_yolo.points))
     # print(np.asarray(pcd.points))
-    visualize_point_cloud(pcd, pcd_yolo)
+    #visualize_point_cloud(pcd, pcd_yolo)
     p1 = np.asarray(pcd_yolo.points)[0]
     p2 = np.asarray(pcd_yolo.points)[1]
     p_min = (min(p1[0], p2[0]) - padding_x, min(p1[1], p2[1]) - padding_y, -100)

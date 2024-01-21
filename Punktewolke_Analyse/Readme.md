@@ -13,3 +13,6 @@ will also need:
 
 to install:
 - you can put all files of this repository in the "python" folder containing the samplefiles from the royale software
+
+to run:
+- eg install required packages in a venv and run the main.py file
