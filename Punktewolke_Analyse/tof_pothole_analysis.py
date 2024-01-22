@@ -25,38 +25,37 @@ class TofPotholeAnalysis:
     Class to analyze potholes by taking an image with a tof camera and calculating the depth of the pothole.
     """
 
-    def __init__(self, p1_2d, p2_2d, angle, directory="", threshold=0, plyFile=None, rrfFile=None):
+    def __init__(self, p1_2d, p2_2d, angle, directory_rrf="", directory_ply="", threshold=0, plyFile=None, rrfFile=None):
         """
         :param p1_2d: first point of the rectangle in which the pothole is located
         :param p2_2d: second point of the rectangle in which the pothole is located
         :param angle: angle of the rectangle in which the pothole is located
-        :param directory: directory where the files will be stored
+        :param directory_rrf: directory_rrf where the files will be stored
         :param threshold: threshold for the depth of the pothole
         :param plyFile: path to the ply file. If given will not create a new one
         :param rrfFile: path to the rrf file. If given will not create a new one
         """
         self.angle = angle
-        self.directory = directory
+        self.directory_rrf = directory_rrf
+        self.directory_ply = directory_ply
         self.threshold = threshold
         self.plyFile = plyFile
         self.rrfFile = rrfFile
-        self.potholes = []
 
         if self.rrfFile is None:
             self.__record_rrf()
         if self.plyFile is None:
             self.__create_ply()
 
-        for i in range(p1_2d.__len__()):
-            max_depth, avg_depth = self.__process_ply(p1_2d[i], p2_2d[i], angle)
-            self.potholes.append(Pothole(max_depth, avg_depth))
+        max_depth, avg_depth = self.__process_ply(p1_2d, p2_2d, angle)
+        self.pothole = Pothole(max_depth, avg_depth)
 
     def __record_rrf(self):
         """
         Record a rrf file with the tof camera.
         """
         frames = 1
-        self.rrfFile = self.directory + "/tof_recording.rrf"
+        self.rrfFile = self.directory_rrf + "/tof_recording.rrf"
         parser = argparse.ArgumentParser(usage=__doc__)
         add_camera_opener_options(parser)
         parser.add_argument("--frames", default=frames, type=int,
@@ -99,10 +98,10 @@ class TofPotholeAnalysis:
         """
         Create a ply file from a rrf file.
         """
-        self.plyFile = self.directory + "/pothole.ply"
+        self.plyFile = self.directory_ply + "/pothole.ply"
         parser = argparse.ArgumentParser()
         add_camera_opener_options(parser)
-        parser.add_argument("--output", type=str, default=self.directory + "/pothole", help="name of the output file")
+        parser.add_argument("--output", type=str, default=self.directory_ply + "/pothole", help="name of the output file")
         options, _ = parser.parse_known_args()
         options.rrf = self.rrfFile
         opener = CameraOpener(options)
@@ -149,4 +148,4 @@ class TofPotholeAnalysis:
         return max_depth, average_depth
 
     def get_potholes(self):
-        return self.potholes
+        return self.pothole

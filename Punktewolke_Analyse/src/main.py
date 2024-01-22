@@ -1,5 +1,4 @@
 import argparse
-import cv2
 import os
 import subprocess
 # local imports
@@ -50,8 +49,8 @@ def main():
 
     # main
     while True:
-        #if cv2.waitKey(30) == 27:  # Press Esc to stop
-         #   break
+        # if cv2.waitKey(30) == 27:  # Press Esc to stop
+        #   break
 
         frame = cam.get_frame()
         pothole_detection = detector.detect_potholes(frame)
@@ -62,7 +61,7 @@ def main():
             if not nogps:
                 latitude, longitude = gps_module.get_gps_coordinates(gps_node)
 
-        #   if not notof:
+            #   if not notof:
             tof_images = []  # = tof_camera.capture_tof_image(pothole_detection.xyxy[0]) TODO whole tof part
             print(pothole_detection.xyxy)
             # Save images and data
@@ -72,49 +71,44 @@ def main():
                       f"data/results/{counter}/result.txt")
 
             if not nogps:
-                save_text(f"Latitude: {int(latitude[:2])}°{latitude[2:4]}.{latitude[4:]}\' N, \nLongitude: {int(longitude[:3])}°{longitude[3:5]}.{longitude[5:]}\' E\n",
-                          f"data/results/{counter}/result.txt")
+                save_text(
+                    f"Latitude: {int(latitude[:2])}°{latitude[2:4]}.{latitude[4:]}\' N, \nLongitude: {int(longitude[:3])}°{longitude[3:5]}.{longitude[5:]}\' E\n",
+                    f"data/results/{counter}/result.txt")
             else:
                 save_text("Latitude: no gps\nLongitude: no gps\n",
                           f"data/results/{counter}/result.txt")
             if not notof:
                 # Befehl zum Aktivieren der virtuellen Umgebung
                 activate_cmd = 'venv\\Scripts\\activate'
-                # Befehl zum Ausführen des Python-Skripts
-                p1x = "--p1x " + str(-0.4) + " "
-                p1y = "--p1y " + str(-3) + " "
-                p2x = "--p2x " + str(0.4) + " "
-                p2y = "--p2y " + str(-0.5) + " "
-                storageDir = "--dir " + f"data/results/{counter}/" + " "
-                create_rrf = "--create_rrf "
-                angle = "--angle 45"
-                counterAttribute = "--counter " + str(counter) + " "
-                script_cmd = "python.exe main.py " + p1x + p1y + p2x + p2y + counterAttribute + create_rrf + storageDir + angle
-                combined_cmd = f'{activate_cmd} && {script_cmd}'
-                subprocess.run(combined_cmd, shell=True)
-                print("analyse done")
-                """
-                for i in range(1, 1):  # TODO zweiter index muss Anzahl der erkannten Schlaglöcher in einem Bild sein
-                    p1x = "--p1x " + str(pothole_detection.xyxy[i][0]) + " "
-                    p1y = "--p1y " + str(pothole_detection.xyxy[i][1]) + " "
-                    p2x = "--p2x " + str(pothole_detection.xyxy[i][2]) + " "
-                    p2y = "--p2y " + str(pothole_detection.xyxy[i][3]) + " "
+                camera_is_connected = True
+                for i, xyxy in enumerate(pothole_detection.xyxy):
+                    # only for testdata:
+                    xyxy = [-0.4, -3, 0.4, -0.5]
+                    camera_is_connected = False
+                    #########################################
+                    p1x = "--p1x " + str(xyxy[0]) + " "
+                    p1y = "--p1y " + str(xyxy[1]) + " "
+                    p2x = "--p2x " + str(xyxy[2]) + " "
+                    p2y = "--p2y " + str(xyxy[3]) + " "
                     storageDir = "--dir " + f"data/results/" + " "
-                    counter = "--counter " + str(counter) + " "
-                    angle = "--angle 45"
-                    script_cmd = "python.exe main.py " + p1x + p1y + p2x + p2y + storageDir + angle + counter
-                    # Kombinieren Sie die Befehle zu einem einzigen Befehl
+                    counterAttribute = "--counter " + str(counter) + " "
+                    angle = "--angle 45 "
+                    index = "--index " + str(i) + " "
+                    script_cmd = "python.exe main.py " + p1x + p1y + p2x + p2y + counterAttribute + storageDir + angle + index
+
+                    # first pothole in one image will trigger the camera, every later one will just reuse the tof image
+
                     combined_cmd = f'{activate_cmd} && {script_cmd}'
-                    # Führen Sie den kombinierten Befehl im subprocess aus
                     subprocess.run(combined_cmd, shell=True)
-                """
+                print("Tof analysis done")
             else:
                 save_text("Average Pothole Depth: no tof\nMax Pothole Depth: no tof\nPothole Size: no tof",
                           f"data/results/{counter}/result.txt")
+
             counter += 1
 
-        #if not headless:
-         #   cv2.imshow("Pothole Detection", frame)
+        # if not headless:
+        #   cv2.imshow("Pothole Detection", frame)
 
 
 if __name__ == "__main__":
