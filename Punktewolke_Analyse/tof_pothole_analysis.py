@@ -1,11 +1,11 @@
 import argparse
 import sys
 import time
-import src.utils.tof.plyExportListener as plyExportListener
-import src.utils.tof.rrfRecordListener as rrfRecordListener
-import src.utils.tof.plyAnalyse as pa
+import plyExportListener as plyExportListener
+import rrfRecordListener as rrfRecordListener
+import plyAnalyse as pa
 from roypy_sample_utils import CameraOpener, add_camera_opener_options
-from src.utils.tof.sample_camera_info import print_camera_info
+from sample_camera_info import print_camera_info
 
 
 class Pothole:
@@ -64,7 +64,7 @@ class TofPotholeAnalysis:
         parser.add_argument("--output", default=self.rrfFile, type=str, help="filename to record to")
         parser.add_argument("--skipFrames", type=int, default=0, help="frameSkip argument for the API method")
         parser.add_argument("--skipMilliseconds", type=int, default=0, help="msSkip argument for the API method")
-        options = parser.parse_args()
+        options, _ = parser.parse_known_args()
 
         opener = CameraOpener(options)
         cam = opener.open_camera()
@@ -103,7 +103,7 @@ class TofPotholeAnalysis:
         parser = argparse.ArgumentParser()
         add_camera_opener_options(parser)
         parser.add_argument("--output", type=str, default=self.directory + "/pothole", help="name of the output file")
-        options = parser.parse_args()
+        options, _ = parser.parse_known_args()
         options.rrf = self.rrfFile
         opener = CameraOpener(options)
 

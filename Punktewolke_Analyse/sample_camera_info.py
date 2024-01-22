@@ -17,7 +17,7 @@ def main ():
     platformhelper = PlatformHelper()
     # Support a '--help' command-line option
     parser = argparse.ArgumentParser(usage = __doc__)
-    parser.parse_args()
+    parser.parse_known_args()
 
     # The rest of this function opens the first camera found
     c = roypy.CameraManager()
