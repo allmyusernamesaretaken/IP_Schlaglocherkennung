@@ -1,6 +1,9 @@
 import argparse
 import os
 import subprocess
+
+import cv2
+
 # local imports
 import camera
 import detection
@@ -56,7 +59,8 @@ def main():
         pothole_detection = detector.detect_potholes(frame)
         frame = label_image(frame, pothole_detection, detector.model.names)
 
-        if pothole_detection.confidence.size > 0 and pothole_detection.confidence[0] > 0.5:
+        if pothole_detection.confidence.size > 0 and pothole_detection.confidence[0] > 0.4:
+        #if True:
             print("-------------STORING POTHOLE---------------")  # TODO delete later, just for Debug
             if not nogps:
                 latitude, longitude = gps_module.get_gps_coordinates(gps_node)
@@ -81,23 +85,27 @@ def main():
                 # Befehl zum Aktivieren der virtuellen Umgebung
                 activate_cmd = 'venv\\Scripts\\activate'
                 camera_is_connected = True
+                #xyxyarray = [[0, 0, 0, 0]]
                 for i, xyxy in enumerate(pothole_detection.xyxy):
+                #for i, xyxy in enumerate(xyxyarray):
                     # only for testdata:
-                    xyxy = [-0.4, -3, 0.4, -0.5]
-                    camera_is_connected = False
+
+                    #xyxy = [890, 848, 1030, 914]
+                    #camera_is_connected = False
                     #########################################
                     p1x = "--p1x " + str(xyxy[0]) + " "
                     p1y = "--p1y " + str(xyxy[1]) + " "
                     p2x = "--p2x " + str(xyxy[2]) + " "
                     p2y = "--p2y " + str(xyxy[3]) + " "
-                    storageDir = "--dir " + f"data/results/" + " "
+                    storageDir = "--dir " + f"data/results/{counter}" + " "
                     counterAttribute = "--counter " + str(counter) + " "
                     angle = "--angle 45 "
                     index = "--index " + str(i) + " "
                     script_cmd = "python.exe main.py " + p1x + p1y + p2x + p2y + counterAttribute + storageDir + angle + index
 
                     # first pothole in one image will trigger the camera, every later one will just reuse the tof image
-
+                    if i == 0 or not camera_is_connected:
+                        script_cmd += "--create_rrf "
                     combined_cmd = f'{activate_cmd} && {script_cmd}'
                     subprocess.run(combined_cmd, shell=True)
                 print("Tof analysis done")
@@ -108,7 +116,7 @@ def main():
             counter += 1
 
         # if not headless:
-        #   cv2.imshow("Pothole Detection", frame)
+        #cv2.imshow("Pothole Detection", frame)
 
 
 if __name__ == "__main__":

@@ -25,15 +25,15 @@ def main():
 
     if options.create_rrf:
         tofAnalysis = tpa.TofPotholeAnalysis((options.p1x, options.p1y), (options.p2x, options.p2y),
-                                             options.angle, f"data/results/{options.counter}", options.dir)
+                                             options.angle, f"data/results", options.dir)
     else:
         tofAnalysis = tpa.TofPotholeAnalysis((options.p1x, options.p1y), (options.p2x, options.p2y),
                                              options.angle, options.dir, options.dir + str(options.counter),
-                                             rrfFile="data/results/recording.rrf")
+                                             rrfFile="data/results/tof_recording.rrf")
     pothole = tofAnalysis.get_potholes()
-    save_text(f"Average Pothole Depth {options.index}: {pothole.get_avg_pothole_depth()}\n",
+    save_text(f"Average Pothole Depth {options.index}: {pothole.get_avg_pothole_depth()*10**3}\n",
               f"data/results/{options.counter}/result.txt")
-    save_text(f"Max Pothole Depth {options.index}: {pothole.get_max_pothole_depth()}\n",
+    save_text(f"Max Pothole Depth {options.index}: {pothole.get_max_pothole_depth()*10**3}\n",
               f"data/results/{options.counter}/result.txt")
     print("Maximale Tiefe: " + str(pothole.get_max_pothole_depth() * 10 ** 3) + "mm")
     print("durchschnittliche Tiefe: " + str(pothole.get_avg_pothole_depth() * 10 ** 3) + "mm")

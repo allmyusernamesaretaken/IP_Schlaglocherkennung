@@ -51,7 +51,9 @@ def convert_2d_points_to_3d_scale(point):
     :return: skalierten 2d Punkt
     """
     # TODO  implementieren
-    return point
+    px_converted = (point[0]-960) * 11/5000
+    py_converted = -(1080-point[1]) * 3/400
+    return px_converted, py_converted
 
 
 def crop_point_cloud_outside_of_rotated_2d_points(pcd, p1, p2, padding_x=0, padding_y=0, angle=0):
@@ -77,7 +79,7 @@ def crop_point_cloud_outside_of_rotated_2d_points(pcd, p1, p2, padding_x=0, padd
 
     # print(np.asarray(pcd_yolo.points))
     # print(np.asarray(pcd.points))
-    #visualize_point_cloud(pcd, pcd_yolo)
+    visualize_point_cloud(pcd, pcd_yolo)
     p1 = np.asarray(pcd_yolo.points)[0]
     p2 = np.asarray(pcd_yolo.points)[1]
     p_min = (min(p1[0], p2[0]) - padding_x, min(p1[1], p2[1]) - padding_y, -100)
@@ -384,16 +386,16 @@ def calculate_street_plane_least_square_distance(pcd):
     reduced_pcd = remove_outliers(reduced_pcd)
     points_reduced_pcd = np.asarray(reduced_pcd.points)
     # Finde 3 Randpunkte, welche sehr wahrscheinlich in der "BodenEbene" liegen und nicht im Schlagloch
-    p_min = points_reduced_pcd[np.argmin(points_reduced_pcd[:, 0] + points_reduced_pcd[:, 1])]
-    p_max = points_reduced_pcd[np.argmax(points_reduced_pcd[:, 0] + points_reduced_pcd[:, 1])]
-    p_min_max = points_reduced_pcd[np.argmax(points_reduced_pcd[:, 0] - points_reduced_pcd[:, 1])]
+    p_links_oben = points_reduced_pcd[np.argmin(points_reduced_pcd[:, 0] + points_reduced_pcd[:, 1])]
+    p_rechts_unten = points_reduced_pcd[np.argmax(points_reduced_pcd[:, 0] + points_reduced_pcd[:, 1])]
+    p_links_unten = points_reduced_pcd[np.argmin(-points_reduced_pcd[:, 0] + points_reduced_pcd[:, 1])]
 
     lowOrHigh = 0
-    if calculate_distance_to_plane(normal, d, p_min) > 0:
+    if calculate_distance_to_plane(normal, d, p_links_oben) > 0:
         lowOrHigh += 1
-    if calculate_distance_to_plane(normal, d, p_max) > 0:
+    if calculate_distance_to_plane(normal, d, p_rechts_unten) > 0:
         lowOrHigh += 1
-    if calculate_distance_to_plane(normal, d, p_min_max) > 0:
+    if calculate_distance_to_plane(normal, d, p_links_unten) > 0:
         lowOrHigh += 1
     if lowOrHigh > 2:
         normal, d = calculate_least_square_distance(points_higher)
